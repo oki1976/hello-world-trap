@@ -36,8 +36,6 @@
 + with live surveillance in a single gas-optimized contract
 Trap Contract: DRDSER4Trap.sol
 
-Trap Contract: DRDSER4Trap.sol
-
 Pay attention to this string "address public constant target = 0x6a2CB0D4a32F4AB4b8c401307696dA73b430733c; // change 0x2aCEeCC0d79C54569aF451d354498Bb80Efe6C41 to your own wallet address"
 
 ## 📜 Contract Code
