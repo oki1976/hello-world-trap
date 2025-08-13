@@ -32,28 +32,46 @@ pragma solidity ^0.8.20;
 
 interface ITrap {
     function collect() external view returns (bytes memory);
-    function shouldRespond(bytes calldata data) external pure returns (bool, bytes memory);
+    function shouldRespond(bytes[] calldata data) external pure returns (bool, bytes memory);
 }
 
 contract DRDSER4Trap is ITrap {
-    uint256 public constant BLOCK_SAMPLE_SIZE = 10;
-    uint256 public constant COOLDOWN_BLOCKS = 33;
-
+    // Replace with the exact checksummed addresses you want to monitor.
+    // (These are placeholders copied from your example; verify!)
     address public constant OPERATOR1 = 0x6a2EC0bDA342F4B4b8c401307696Ad73b430733c;
     address public constant OPERATOR2 = 0x2aCEcCC0d79C54569aF451d354498bB80Ef6C41;
 
+    // One snapshot per block (Drosera will assemble an array of these)
     function collect() external view override returns (bytes memory) {
-        return abi.encode(OPERATOR1.balance, OPERATOR2.balance, block.number);
+        return abi.encode(OPERATOR1, OPERATOR1.balance, OPERATOR2, OPERATOR2.balance, block.number);
     }
 
-    function shouldRespond(bytes calldata data) external pure override returns (bool, bytes memory) {
+    // data[0] = newest, data[1] = previous
+    function shouldRespond(bytes[] calldata data) external pure override returns (bool, bytes memory) {
         if (data.length < 2) return (false, "");
 
-        (uint256 op1Current, uint256 op2Current, ) = abi.decode(data[0], (uint256, uint256, uint256));
-        (uint256 op1Prev, uint256 op2Prev, ) = abi.decode(data[1], (uint256, uint256, uint256));
+        (address o1aC, uint256 o1bC, address o2aC, uint256 o2bC, uint256 bnC)
+            = abi.decode(data[0], (address, uint256, address, uint256, uint256));
+        (address o1aP, uint256 o1bP, address o2aP, uint256 o2bP, uint256 bnP)
+            = abi.decode(data[1], (address, uint256, address, uint256, uint256));
 
-        bool changed = (op1Current != op1Prev || op2Current != op2Prev);
-        return (changed, abi.encode("ALERT"));
+        // sanity: same operators across snapshots
+        if (o1aC != o1aP || o2aC != o2aP) return (false, "");
+
+        bool changed1 = (o1bC != o1bP);
+        bool changed2 = (o2bC != o2bP);
+        if (!(changed1 || changed2)) return (false, "");
+
+        // Structured payload: which changed and by how much
+        int256 d1 = int256(o1bC) - int256(o1bP);
+        int256 d2 = int256(o2bC) - int256(o2bP);
+        bytes memory payload = abi.encode(
+            "ETH balance change",
+            o1aC, o1bP, o1bC, d1,
+            o2aC, o2bP, o2bC, d2,
+            bnP, bnC
+        );
+        return (true, payload);
     }
 }
 
